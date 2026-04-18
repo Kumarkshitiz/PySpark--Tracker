@@ -1,5 +1,3 @@
 const SUPABASE_URL = 'https://tqsqwdinoqlcmxzqrjzn.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxc3F3ZGlub3FsY214enFyanpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1MTg5MTMsImV4cCI6MjA5MjA5NDkxM30.Hj9Sq9y_MEAlVHp8A4sEPJ4PeI13gAqbH4TQR0o1LMM'
 
-const { createClient } = supabase
-const db = createClient(SUPABASE_URL, SUPABASE_KEY)

@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PySpark Tracker</title>
+  <!-- in <head>, in this exact order -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase.js"></script>
+
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -584,23 +587,36 @@
               </svg>
             </span>
             <div>
-              <div class="stat-number">5</div>
+              <div class="stat-number" id="streak-count">5</div>
               <div class="stat-unit">days</div>
             </div>
           </div>
         </div>
 
         <!-- Progress card -->
-        <div class="stat-card progress-card">
-          <div class="stat-label">Total progress</div>
-          <div class="stat-value-row">
-            <div>
-              <div class="stat-number">5 <span style="font-size:16px;font-weight:500;color:var(--text-muted)">/ 150</span></div>
-              <div class="stat-unit">questions done</div>
-            </div>
-          </div>
-        </div>
-      </div>
+        <div class="stat-card">
+  <p class="stat-label">Total progress</p>
+  <div style="display:flex;align-items:center;gap:16px;margin-top:8px">
+    <svg width="80" height="80" viewBox="0 0 80 80">
+      <circle cx="40" cy="40" r="36" fill="none" stroke="#1f2937" stroke-width="7"/>
+      <circle
+        id="progress-circle-fill"
+        cx="40" cy="40" r="36"
+        fill="none"
+        stroke="#6366f1"
+        stroke-width="7"
+        stroke-linecap="round"
+        stroke-dasharray="226.2"
+        stroke-dashoffset="226.2"
+        transform="rotate(-90 40 40)"
+        style="transition: stroke-dashoffset 1s ease"
+      />
+      <text x="40" y="37" text-anchor="middle" fill="white" font-size="13" font-weight="600" id="progress-done">0</text>
+      <text x="40" y="52" text-anchor="middle" fill="#6b7280" font-size="10" id="progress-total">150</text>
+    </svg>
+    <p style="color:#6b7280;font-size:13px">questions<br/>solved</p>
+  </div>
+</div>
 
       <!-- Level cards -->
       <div class="section-heading">Levels</div>
@@ -610,194 +626,248 @@
   </div>
 
   <script>
-    // ── DATA ──
-    const LEVELS = [
-      {
-        id: 1,
-        name: 'Core Foundations',
-        status: 'completed',
-        done: 30,
-        total: 30,
-        questions: [
-          'What is Apache Spark and how does it differ from Hadoop MapReduce?',
-          'Explain RDDs, DataFrames, and Datasets in Spark.',
-          'How does the Spark driver and executor model work?',
-          'What is lazy evaluation and why does Spark use it?',
-          'Describe the difference between transformations and actions.',
-        ]
-      },
-      {
-        id: 2,
-        name: 'PySpark Basics',
-        status: 'active',
-        done: 5,
-        total: 30,
-        questions: [
-          'How do you create a SparkSession in PySpark?',
-          'Read a CSV file with schema inference using PySpark.',
-          'Explain the difference between select() and withColumn().',
-          'How do filter() and where() differ from each other?',
-          'What does cache() do and when should you use it?',
-        ]
-      },
-      {
-        id: 3,
-        name: 'Spark SQL & DataFrames',
-        status: 'locked',
-        done: 0,
-        total: 30,
-        questions: [
-          'How do you register a DataFrame as a temporary SQL view?',
-          'Explain the Catalyst optimizer in Spark SQL.',
-          'What are window functions and how are they used?',
-          'Describe groupBy() with agg() for multi-column aggregation.',
-          'How do you join two DataFrames with different key names?',
-        ]
-      },
-      {
-        id: 4,
-        name: 'Performance Tuning',
-        status: 'locked',
-        done: 0,
-        total: 30,
-        questions: [
-          'What is data skew and how do you handle it in Spark?',
-          'Explain broadcast joins and when to use them.',
-          'What is partitioning and how does repartition() differ from coalesce()?',
-          'How do you tune spark.executor.memory and spark.driver.memory?',
-          'What is the Tungsten execution engine?',
-        ]
-      },
-      {
-        id: 5,
-        name: 'Streaming & MLlib',
-        status: 'locked',
-        done: 0,
-        total: 30,
-        questions: [
-          'How does Spark Structured Streaming differ from DStream-based streaming?',
-          'Explain watermarking in Structured Streaming.',
-          'What output modes are supported by Structured Streaming?',
-          'How do you use MLlib for a classification pipeline?',
-          'What is the role of checkpointing in streaming applications?',
-        ]
-      },
-    ];
+    // ── SUPABASE ──
+const { createClient } = supabase
+const db = createClient(SUPABASE_URL, SUPABASE_KEY)
 
-    // ── SCREEN TOGGLE ──
-    let onDashboard = false;
+// ── MOCK USER (until auth is added) ──
+const MOCK_USER_ID = 'temp-user-1'
 
-    function showDashboard() {
-      document.getElementById('login-screen').classList.remove('active');
-      document.getElementById('dashboard-screen').classList.add('active');
-      onDashboard = true;
-      // Trigger progress bar animations after a short paint delay
-      setTimeout(animateBars, 80);
+// ── LEVEL METADATA ──
+const LEVEL_META = {
+  1: { name: 'Core Foundations' },
+  2: { name: 'PySpark Basics' },
+  3: { name: 'Spark SQL & DataFrames' },
+  4: { name: 'Performance Tuning' },
+  5: { name: 'Streaming & MLlib' },
+}
+
+// ── SCREEN TOGGLE ──
+function showDashboard() {
+  document.getElementById('login-screen').classList.remove('active')
+  document.getElementById('dashboard-screen').classList.add('active')
+  loadDashboard()
+}
+
+function showLogin() {
+  document.getElementById('dashboard-screen').classList.remove('active')
+  document.getElementById('login-screen').classList.add('active')
+}
+
+document.getElementById('skip-btn').addEventListener('click', showDashboard)
+document.getElementById('back-btn').addEventListener('click', showLogin)
+
+// ── LOAD FROM SUPABASE ──
+async function loadDashboard() {
+  const [questionsRes, progressRes] = await Promise.all([
+    db.from('questions').select('*').order('level').order('order_index'),
+    db.from('user_progress').select('*').eq('user_id', MOCK_USER_ID)
+  ])
+
+  const questions = questionsRes.data || []
+  const progress = progressRes.data || []
+  const doneIds = new Set(progress.map(p => p.question_id))
+
+  // Group questions by level
+  const grouped = {}
+  questions.forEach(q => {
+    if (!grouped[q.level]) grouped[q.level] = []
+    grouped[q.level].push(q)
+  })
+
+  // Build LEVELS array
+  let foundActive = false
+  const LEVELS = [1, 2, 3, 4, 5].map(lvl => {
+    const qs = grouped[lvl] || []
+    const done = qs.filter(q => doneIds.has(q.id)).length
+    const total = qs.length || 30
+
+    let status
+    if (done === total && total > 0) {
+      status = 'completed'
+    } else if (!foundActive) {
+      status = 'active'
+      foundActive = true
+    } else {
+      status = 'locked'
     }
 
-    function showLogin() {
-      document.getElementById('dashboard-screen').classList.remove('active');
-      document.getElementById('login-screen').classList.add('active');
-      onDashboard = false;
+    return {
+      id: lvl,
+      name: LEVEL_META[lvl].name,
+      status,
+      done,
+      total,
+      questions: qs
+    }
+  })
+
+  // Update UI
+  const totalDone = LEVELS.reduce((sum, l) => sum + l.done, 0)
+  updateCircularProgress(totalDone, 150)
+  await updateStreak()
+  renderLevels(LEVELS, doneIds)
+  setTimeout(animateBars, 80)
+}
+
+// ── CIRCULAR PROGRESS ──
+function updateCircularProgress(done, total) {
+  const circumference = 2 * Math.PI * 36 // radius = 36
+  const offset = circumference * (1 - done / total)
+  document.getElementById('progress-circle-fill').style.strokeDashoffset = offset
+  document.getElementById('progress-done').textContent = done
+  document.getElementById('progress-total').textContent = total
+}
+
+// ── STREAK ──
+async function updateStreak() {
+  const { data } = await db
+    .from('streaks')
+    .select('streak_date')
+    .eq('user_id', MOCK_USER_ID)
+    .order('streak_date', { ascending: false })
+
+  if (!data || data.length === 0) {
+    document.getElementById('streak-count').textContent = '0'
+    return
+  }
+
+  const dates = new Set(data.map(r => r.streak_date))
+  let streak = 0
+  const check = new Date()
+  check.setHours(0, 0, 0, 0)
+
+  while (true) {
+    const key = check.toISOString().split('T')[0]
+    if (dates.has(key)) {
+      streak++
+      check.setDate(check.getDate() - 1)
+    } else {
+      break
+    }
+  }
+
+  document.getElementById('streak-count').textContent = streak
+}
+
+// ── RENDER LEVELS ──
+function renderLevels(LEVELS, doneIds) {
+  const container = document.getElementById('levels-list')
+  container.innerHTML = ''
+
+  const diffColor = { easy: '#22c55e', medium: '#f59e0b', hard: '#ef4444' }
+
+  LEVELS.forEach((level) => {
+    const pct = (level.done / level.total) * 100
+    const card = document.createElement('div')
+    card.className = `level-card ${level.status}`
+    card.dataset.id = level.id
+
+    // Badge
+    let badgeContent = `<span style="font-size:11px;font-weight:800">${level.id}</span>`
+    if (level.status === 'completed') {
+      badgeContent = `<svg viewBox="0 0 16 16" fill="none" style="width:15px;height:15px">
+        <path d="M3 8.5l3.5 3.5 6.5-7" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>`
+    } else if (level.status === 'locked') {
+      badgeContent = `<svg viewBox="0 0 16 16" fill="none">
+        <rect x="3" y="7" width="10" height="8" rx="2" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M5 7V5a3 3 0 016 0v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>`
     }
 
-    document.getElementById('skip-btn').addEventListener('click', showDashboard);
-    document.getElementById('back-btn').addEventListener('click', showLogin);
+    // Chevron
+    const chevron = level.status === 'active' ? `
+      <svg class="card-chevron" viewBox="0 0 16 16" fill="none">
+        <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>` : ''
 
-    // ── RENDER LEVELS ──
-    function renderLevels() {
-      const container = document.getElementById('levels-list');
-      container.innerHTML = '';
+    // Questions — now objects from DB
+    const questionsHtml = level.questions.map((q) => `
+      <label class="question-item ${doneIds.has(q.id) ? 'done' : ''}" data-qid="${q.id}">
+        <input type="checkbox" class="q-checkbox" ${doneIds.has(q.id) ? 'checked' : ''} />
+        <span class="q-label">
+          ${q.title}
+          <span style="font-size:10px;color:${diffColor[q.difficulty] || '#888'};margin-left:6px;font-weight:600;text-transform:uppercase">${q.difficulty || ''}</span>
+          <span style="font-size:11px;color:#888;display:block;margin-top:2px">${q.concept || ''}</span>
+        </span>
+      </label>
+    `).join('')
 
-      LEVELS.forEach((level) => {
-        const pct = (level.done / level.total) * 100;
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="level-badge">${badgeContent}</div>
+        <div class="card-meta">
+          <div class="card-title-row">
+            <span class="card-title">Level ${level.id} — ${level.name}</span>
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-bar-track">
+              <div class="progress-bar-fill" data-pct="${pct}"></div>
+            </div>
+            <span class="progress-label">${level.done} / ${level.total}</span>
+          </div>
+        </div>
+        ${chevron}
+      </div>
+      <div class="card-body">
+        <div class="card-body-inner">
+          <div class="questions-list">${questionsHtml}</div>
+        </div>
+      </div>
+    `
 
-        const card = document.createElement('div');
-        card.className = `level-card ${level.status}`;
-        card.dataset.id = level.id;
+    // Expand accordion
+    if (level.status === 'active') {
+      card.querySelector('.card-header').addEventListener('click', () => {
+        card.classList.toggle('open')
+      })
+    }
 
-        // Badge content
-        let badgeContent = `<span style="font-size:11px;font-weight:800">${level.id}</span>`;
-        if (level.status === 'completed') {
-          badgeContent = `<svg class="check-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:15px;height:15px">
-            <path d="M3 8.5l3.5 3.5 6.5-7" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>`;
-        } else if (level.status === 'locked') {
-          badgeContent = `<svg class="lock-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="3" y="7" width="10" height="8" rx="2" stroke="currentColor" stroke-width="1.5"/>
-            <path d="M5 7V5a3 3 0 016 0v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          </svg>`;
+    // Checkbox → Supabase
+    card.querySelectorAll('.question-item').forEach((item) => {
+      const cb = item.querySelector('.q-checkbox')
+      const qid = parseInt(item.dataset.qid)
+
+      cb.addEventListener('change', async () => {
+        item.classList.toggle('done', cb.checked)
+
+        if (cb.checked) {
+          await db.from('user_progress').upsert({
+            user_id: MOCK_USER_ID,
+            question_id: qid,
+            completed_at: new Date().toISOString()
+          })
+          await db.from('streaks').upsert({
+            user_id: MOCK_USER_ID,
+            streak_date: new Date().toISOString().split('T')[0]
+          })
+        } else {
+          await db.from('user_progress')
+            .delete()
+            .eq('user_id', MOCK_USER_ID)
+            .eq('question_id', qid)
         }
 
-        // Chevron only for active
-        const chevron = level.status === 'active' ? `
-          <svg class="card-chevron" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>` : '';
+        loadDashboard()
+      })
+    })
 
-        // Questions
-        const questionsHtml = level.questions.map((q, i) => `
-          <label class="question-item" data-idx="${i}">
-            <input type="checkbox" class="q-checkbox" />
-            <span class="q-label">${q}</span>
-          </label>
-        `).join('');
+    container.appendChild(card)
+  })
+}
 
-        card.innerHTML = `
-          <div class="card-header">
-            <div class="level-badge">${badgeContent}</div>
-            <div class="card-meta">
-              <div class="card-title-row">
-                <span class="card-title">Level ${level.id} — ${level.name}</span>
-              </div>
-              <div class="progress-wrap">
-                <div class="progress-bar-track">
-                  <div class="progress-bar-fill" data-pct="${pct}"></div>
-                </div>
-                <span class="progress-label">${level.done} / ${level.total}</span>
-              </div>
-            </div>
-            ${chevron}
-          </div>
-          <div class="card-body">
-            <div class="card-body-inner">
-              <div class="questions-list">${questionsHtml}</div>
-            </div>
-          </div>
-        `;
+// ── ANIMATE BARS ──
+function animateBars() {
+  document.querySelectorAll('.progress-bar-fill').forEach((bar) => {
+    requestAnimationFrame(() => {
+      bar.style.width = (parseFloat(bar.dataset.pct) || 0) + '%'
+    })
+  })
+}
 
-        // Toggle expand for active cards
-        if (level.status === 'active') {
-          card.querySelector('.card-header').addEventListener('click', () => {
-            card.classList.toggle('open');
-          });
-        }
-
-        // Checkbox strike-through
-        card.querySelectorAll('.question-item').forEach((item) => {
-          const cb = item.querySelector('.q-checkbox');
-          cb.addEventListener('change', () => {
-            item.classList.toggle('done', cb.checked);
-          });
-        });
-
-        container.appendChild(card);
-      });
-    }
-
-    // ── ANIMATE PROGRESS BARS ──
-    function animateBars() {
-      document.querySelectorAll('.progress-bar-fill').forEach((bar) => {
-        const target = parseFloat(bar.dataset.pct) || 0;
-        // Small rAF delay ensures transition fires
-        requestAnimationFrame(() => {
-          bar.style.width = target + '%';
-        });
-      });
-    }
-
-    // ── INIT ──
-    renderLevels();
+// ── INIT ──
+renderLevels([], new Set())
   </script>
 </body>
 </html>
