@@ -2,153 +2,554 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Question — PySpark Tracker</title>
-
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
-      background: #09090b;
-      color: #f4f4f5;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      min-height: 100vh;
-      padding: 40px 20px;
+    :root {
+      --bg:        #0e0e10;
+      --bg2:       #17171a;
+      --bg3:       #1e1e22;
+      --border:    #2a2a30;
+      --border2:   #3a3a42;
+      --text:      #e8e8f0;
+      --muted:     #6b6b7a;
+      --accent:    #6366f1;
+      --accent-dim:#6366f120;
+      --green:     #22c55e;
+      --amber:     #f59e0b;
+      --red:       #ef4444;
+      --font-ui:   'Syne', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
     }
 
-    .q-page {
-      max-width: 680px;
-      margin: 0 auto;
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-ui);
+      font-size: 14px;
+      line-height: 1.6;
     }
 
-    .back-link {
-      display: inline-block;
-      color: #6b7280;
-      font-size: 13px;
+    /* ── TOPBAR ── */
+    .topbar {
+      height: 48px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
       text-decoration: none;
-      margin-bottom: 28px;
+      font-size: 12px;
+      font-weight: 500;
+      transition: color 0.15s;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: var(--font-ui);
     }
-    .back-link:hover { color: #f4f4f5; }
+    .back-btn:hover { color: var(--text); }
 
-    .q-header { margin-bottom: 24px; }
+    .topbar-brand {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.2px;
+    }
 
-    .q-top {
+    .topbar-divider {
+      width: 1px;
+      height: 16px;
+      background: var(--border2);
+    }
+
+    .topbar-right {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 12px;
     }
 
-    .q-level-badge {
-      font-size: 11px;
-      font-weight: 700;
-      background: #1f2937;
-      color: #9ca3af;
-      padding: 3px 8px;
+    /* ── DONE BUTTON ── */
+    .done-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
       border-radius: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: var(--font-ui);
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 1px solid var(--border2);
+      background: var(--bg3);
+      color: var(--muted);
     }
 
-    .q-diff {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+    .done-btn.completed {
+      background: #16261e;
+      border-color: #22c55e40;
+      color: var(--green);
     }
+
+    .done-btn:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .done-btn.completed:hover {
+      background: #1a0f0f;
+      border-color: #ef444440;
+      color: var(--red);
+    }
+
+    .done-btn .check-icon {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 1.5px solid currentColor;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 8px;
+    }
+
+    /* ── LAYOUT ── */
+    .layout {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      height: calc(100vh - 48px);
+    }
+
+    /* ── LEFT PANEL ── */
+    .left-panel {
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 28px 28px 60px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border2) transparent;
+    }
+
+    /* ── RIGHT PANEL ── */
+    .right-panel {
+      background: var(--bg);
+      overflow-y: auto;
+      padding: 28px 32px 60px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border2) transparent;
+    }
+
+    /* ── QUESTION META ── */
+    .q-meta-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+    }
+
+    .badge-level {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid #6366f130;
+    }
+
+    .badge-easy   { background: #16261e; color: var(--green); border: 1px solid #22c55e30; }
+    .badge-medium { background: #261e0e; color: var(--amber); border: 1px solid #f59e0b30; }
+    .badge-hard   { background: #26100e; color: var(--red);   border: 1px solid #ef444430; }
 
     .q-title {
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 700;
       line-height: 1.3;
-      margin-bottom: 8px;
+      color: var(--text);
+      margin-bottom: 10px;
+      letter-spacing: -0.3px;
     }
 
-    .q-concept-tag {
-      font-size: 13px;
-      color: #6b7280;
+    .q-concept {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      margin-bottom: 24px;
+      padding: 6px 10px;
+      background: var(--bg3);
+      border-radius: 4px;
+      border-left: 2px solid var(--accent);
+      display: inline-block;
     }
 
-    .q-done-row {
-      background: #111827;
-      border: 1px solid #1f2937;
-      border-radius: 10px;
-      padding: 14px 16px;
+    /* ── SECTION ── */
+    .section {
       margin-bottom: 28px;
     }
 
-    .done-label {
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+      font-family: var(--font-mono);
+    }
+
+    .section-body {
+      font-size: 14px;
+      color: #c4c4d4;
+      line-height: 1.8;
+    }
+
+    /* ── RIGHT PANEL SECTIONS ── */
+    .right-section {
+      margin-bottom: 32px;
+    }
+
+    .right-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+      font-family: var(--font-mono);
       display: flex;
       align-items: center;
-      gap: 10px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 500;
+      gap: 8px;
     }
 
-    .done-label input[type="checkbox"] {
-      width: 16px;
-      height: 16px;
-      accent-color: #6366f1;
-      cursor: pointer;
+    .right-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
     }
 
-    .q-section {
-      margin-bottom: 28px;
-    }
-
-    .q-section h2 {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #6b7280;
-      margin-bottom: 10px;
-    }
-
-    .q-section p {
-      font-size: 15px;
-      line-height: 1.7;
-      color: #d1d5db;
-    }
-
-    .q-code {
-      background: #111827;
-      border: 1px solid #1f2937;
+    /* ── CODE BLOCK ── */
+    .code-block {
+      background: var(--bg2);
+      border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 16px;
-      font-family: 'Fira Code', monospace;
-      font-size: 13px;
+      padding: 16px 18px;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
       color: #a5b4fc;
       white-space: pre-wrap;
       overflow-x: auto;
+      line-height: 1.7;
     }
 
-    .q-link-btn {
+    /* ── LINK BUTTONS ── */
+    .link-btn {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      background: #1f2937;
-      color: #f4f4f5;
-      text-decoration: none;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 7px;
       font-size: 13px;
-      font-weight: 500;
-      padding: 9px 16px;
-      border-radius: 8px;
-      border: 1px solid #374151;
-      transition: background 0.15s;
+      font-weight: 600;
+      font-family: var(--font-ui);
+      text-decoration: none;
+      border: 1px solid var(--border2);
+      background: var(--bg3);
+      color: var(--text);
+      transition: all 0.15s;
+      margin-right: 10px;
+      margin-bottom: 8px;
     }
-    .q-link-btn:hover { background: #374151; }
 
-    #content { min-height: 200px; }
+    .link-btn:hover {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    .link-btn svg {
+      width: 14px;
+      height: 14px;
+      opacity: 0.7;
+    }
+
+    /* ── DIVIDER ── */
+    .panel-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 24px 0;
+    }
+
+    /* ── LOADING ── */
+    #loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: calc(100vh - 48px);
+      color: var(--muted);
+      font-size: 13px;
+      gap: 10px;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
   </style>
 </head>
 <body>
-  <div id="content">
-    <div style="color:#6b7280;padding:60px 20px;text-align:center">Loading...</div>
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="back-btn" onclick="history.back()">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <path d="M10 4L6 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Back
+      </button>
+      <div class="topbar-divider"></div>
+      <span class="topbar-brand">PySpark Tracker</span>
+    </div>
+    <div class="topbar-right">
+      <button class="done-btn" id="done-btn" onclick="toggleDone()">
+        <span class="check-icon" id="check-icon"></span>
+        <span id="done-label">Mark as done</span>
+      </button>
+    </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Loading -->
+  <div id="loading">
+    <div class="spinner"></div>
+    Loading question...
+  </div>
+
+  <!-- Main layout (hidden until loaded) -->
+  <div class="layout" id="main-layout" style="display:none">
+
+    <!-- Left: Problem -->
+    <div class="left-panel">
+      <div class="q-meta-row" id="meta-row"></div>
+      <h1 class="q-title" id="q-title"></h1>
+      <div class="q-concept" id="q-concept"></div>
+
+      <div class="panel-divider"></div>
+
+      <div class="section">
+        <div class="section-label">Problem</div>
+        <div class="section-body" id="q-problem"></div>
+      </div>
+    </div>
+
+    <!-- Right: Output + Resources -->
+    <div class="right-panel">
+
+      <div class="right-section" id="output-section" style="display:none">
+        <div class="right-label">Expected output</div>
+        <pre class="code-block" id="q-output"></pre>
+      </div>
+
+      <div class="right-section" id="resources-section" style="display:none">
+        <div class="right-label">Resources</div>
+        <div id="q-links"></div>
+      </div>
+
+      <div class="right-section">
+        <div class="right-label">Info</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg2);border-radius:6px;border:1px solid var(--border)">
+            <span style="font-size:12px;color:var(--muted);font-family:var(--font-mono)">Level</span>
+            <span style="font-size:12px;font-weight:600;color:var(--text)" id="info-level">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg2);border-radius:6px;border:1px solid var(--border)">
+            <span style="font-size:12px;color:var(--muted);font-family:var(--font-mono)">Difficulty</span>
+            <span style="font-size:12px;font-weight:600" id="info-diff">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg2);border-radius:6px;border:1px solid var(--border)">
+            <span style="font-size:12px;color:var(--muted);font-family:var(--font-mono)">Concept</span>
+            <span style="font-size:12px;font-weight:500;color:var(--text);text-align:right;max-width:180px" id="info-concept">—</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <script src="js/config.js"></script>
   <script src="js/supabase.js"></script>
-  <script src="js/question.js"></script>
+  <script>
+    const diffColor = { easy: '#22c55e', medium: '#f59e0b', hard: '#ef4444' }
+    const diffClass = { easy: 'badge-easy', medium: 'badge-medium', hard: 'badge-hard' }
+
+    let currentUserId = null
+    let currentQid = null
+    let isDone = false
+
+    async function loadQuestion() {
+      const { data: { session } } = await db.auth.getSession()
+      currentUserId = session?.user?.id || '00000000-0000-0000-0000-000000000001'
+
+      const params = new URLSearchParams(window.location.search)
+      const id = params.get('id')
+      if (!id) return showError('No question ID found.')
+
+      currentQid = parseInt(id)
+
+      const [qRes, progressRes] = await Promise.all([
+        db.from('questions').select('*').eq('id', currentQid).single(),
+        db.from('user_progress')
+          .select('*')
+          .eq('user_id', currentUserId)
+          .eq('question_id', currentQid)
+          .maybeSingle()
+      ])
+
+      const q = qRes.data
+      if (!q) return showError('Question not found.')
+
+      isDone = !!progressRes.data
+      document.title = q.title + ' — PySpark Tracker'
+
+      // Meta badges
+      document.getElementById('meta-row').innerHTML = `
+        <span class="badge badge-level">Level ${q.level}</span>
+        <span class="badge ${diffClass[q.difficulty] || ''}">${q.difficulty || ''}</span>
+      `
+
+      // Title + concept
+      document.getElementById('q-title').textContent = q.title
+      document.getElementById('q-concept').textContent = q.concept || ''
+
+      // Problem
+      document.getElementById('q-problem').textContent = q.problem
+
+      // Expected output
+      if (q.expected_output) {
+        document.getElementById('output-section').style.display = 'block'
+        document.getElementById('q-output').textContent = q.expected_output
+      }
+
+      // Links
+      const linksEl = document.getElementById('q-links')
+      if (q.dataset_url || q.colab_url) {
+        document.getElementById('resources-section').style.display = 'block'
+        if (q.dataset_url) {
+          linksEl.innerHTML += `
+            <a href="${q.dataset_url}" target="_blank" class="link-btn">
+              <svg viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Download dataset
+            </a>`
+        }
+        if (q.colab_url) {
+          linksEl.innerHTML += `
+            <a href="${q.colab_url}" target="_blank" class="link-btn">
+              <svg viewBox="0 0 16 16" fill="none"><path d="M6 3l7 5-7 5V3z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Open in Colab
+            </a>`
+        }
+      }
+
+      // Info panel
+      const levelNames = {1:'Core Foundations',2:'PySpark Basics',3:'Spark SQL & DataFrames',4:'Performance Tuning',5:'Streaming & MLlib'}
+      document.getElementById('info-level').textContent = `${q.level} — ${levelNames[q.level] || ''}`
+      document.getElementById('info-diff').textContent = q.difficulty || '—'
+      document.getElementById('info-diff').style.color = diffColor[q.difficulty] || 'var(--text)'
+      document.getElementById('info-concept').textContent = q.concept || '—'
+
+      // Done button
+      updateDoneBtn()
+
+      // Show layout
+      document.getElementById('loading').style.display = 'none'
+      document.getElementById('main-layout').style.display = 'grid'
+    }
+
+    function updateDoneBtn() {
+      const btn = document.getElementById('done-btn')
+      const label = document.getElementById('done-label')
+      const icon = document.getElementById('check-icon')
+
+      if (isDone) {
+        btn.classList.add('completed')
+        label.textContent = 'Completed'
+        icon.textContent = '✓'
+      } else {
+        btn.classList.remove('completed')
+        label.textContent = 'Mark as done'
+        icon.textContent = ''
+      }
+    }
+
+    async function toggleDone() {
+      isDone = !isDone
+      updateDoneBtn()
+
+      if (isDone) {
+        await db.from('user_progress').upsert({
+          user_id: currentUserId,
+          question_id: currentQid,
+          completed_at: new Date().toISOString()
+        })
+        await db.from('streaks').upsert({
+          user_id: currentUserId,
+          streak_date: new Date().toISOString().split('T')[0]
+        })
+      } else {
+        await db.from('user_progress')
+          .delete()
+          .eq('user_id', currentUserId)
+          .eq('question_id', currentQid)
+      }
+    }
+
+    function showError(msg) {
+      document.getElementById('loading').innerHTML = `<span style="color:var(--muted)">${msg}</span>`
+    }
+
+    loadQuestion()
+  </script>
 </body>
 </html>

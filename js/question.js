@@ -1,16 +1,13 @@
-// ✅ REMOVED: const MOCK_USER_ID — declared in dashboard.js globally
-// If question.js is ever loaded standalone, declare it here instead:
-if (typeof MOCK_USER_ID === 'undefined') {
-  var MOCK_USER_ID = '00000000-0000-0000-0000-000000000001'
-}
-
 const diffColor = { easy: '#22c55e', medium: '#f59e0b', hard: '#ef4444' }
 
 async function loadQuestion() {
+  // Get real user from session
+  const { data: { session } } = await db.auth.getSession()
+  const userId = session?.user?.id || '00000000-0000-0000-0000-000000000001'
+
   const params = new URLSearchParams(window.location.search)
   const id = params.get('id')
 
-  // ✅ Guard: only run if #content exists on this page
   const contentEl = document.getElementById('content')
   if (!contentEl) return
 
@@ -25,7 +22,7 @@ async function loadQuestion() {
     db.from('questions').select('*').eq('id', qid).single(),
     db.from('user_progress')
       .select('*')
-      .eq('user_id', MOCK_USER_ID)
+      .eq('user_id', userId)
       .eq('question_id', qid)
       .maybeSingle()
   ])
@@ -53,7 +50,7 @@ async function loadQuestion() {
       <div class="q-done-row">
         <label class="done-label">
           <input type="checkbox" id="done-cb" ${isDone ? 'checked' : ''} />
-          <span>${isDone ? 'Completed' : 'Mark as done'}</span>
+          <span id="done-label-text">${isDone ? 'Completed' : 'Mark as done'}</span>
         </label>
       </div>
       <div class="q-section">
@@ -80,30 +77,29 @@ async function loadQuestion() {
 
   document.getElementById('done-cb').addEventListener('change', async (e) => {
     const checked = e.target.checked
-    const label = e.target.nextElementSibling
+    const label = document.getElementById('done-label-text')
 
     if (checked) {
       await db.from('user_progress').upsert({
-        user_id: MOCK_USER_ID,
+        user_id: userId,
         question_id: qid,
         completed_at: new Date().toISOString()
       })
       await db.from('streaks').upsert({
-        user_id: MOCK_USER_ID,
+        user_id: userId,
         streak_date: new Date().toISOString().split('T')[0]
       })
       label.textContent = 'Completed'
     } else {
       await db.from('user_progress')
         .delete()
-        .eq('user_id', MOCK_USER_ID)
+        .eq('user_id', userId)
         .eq('question_id', qid)
       label.textContent = 'Mark as done'
     }
   })
 }
 
-// ✅ Only call loadQuestion on question.html (where #content exists)
 if (document.getElementById('content')) {
   loadQuestion()
 }

@@ -1,4 +1,4 @@
-const MOCK_USER_ID = '00000000-0000-0000-0000-000000000001'
+let CURRENT_USER = null
 
 const LEVEL_META = {
   1: { name: 'Core Foundations' },
@@ -16,18 +16,24 @@ function showDashboard() {
   loadDashboard()
 }
 
+
 function showLogin() {
   document.getElementById('dashboard-screen').classList.remove('active')
   document.getElementById('login-screen').classList.add('active')
 }
 
-document.getElementById('skip-btn').addEventListener('click', showDashboard)
-document.getElementById('back-btn').addEventListener('click', showLogin)
-
+document.getElementById('skip-btn')?.addEventListener('click', showDashboard)
+document.getElementById('back-btn')?.addEventListener('click', showLogin)
 async function loadDashboard() {
+  CURRENT_USER = await getUser()
+
+  // If no user, fall back to mock for now
+  const userId = CURRENT_USER?.id || '00000000-0000-0000-0000-000000000001'
+  CURRENT_USER = await getUser()
+  console.log('CURRENT USER:', CURRENT_USER)
   const [questionsRes, progressRes] = await Promise.all([
     db.from('questions').select('*').order('level').order('order_index'),
-    db.from('user_progress').select('*').eq('user_id', MOCK_USER_ID)
+    db.from('user_progress').select('*').eq('user_id', userId)
   ])
 
   const questions = questionsRes.data || []
@@ -40,18 +46,38 @@ async function loadDashboard() {
     grouped[q.level].push(q)
   })
 
-  // ✅ All levels unlocked — no more 'locked' status
+  let foundActive = false
   const LEVELS = [1, 2, 3, 4, 5].map(lvl => {
     const qs = grouped[lvl] || []
     const done = qs.filter(q => doneIds.has(q.id)).length
     const total = qs.length || 30
-    const status = (done === total && total > 0) ? 'completed' : 'active'
+
+    let status
+    if (done === total && total > 0) {
+      status = 'completed'
+    } else if (!foundActive) {
+      status = 'active'
+      foundActive = true
+    } else {
+      status = 'locked'
+    }
+
     return { id: lvl, name: LEVEL_META[lvl].name, status, done, total, questions: qs }
   })
 
+  // Update username in topbar
+  if (CURRENT_USER) {
+    const name = CURRENT_USER.user_metadata?.full_name ||
+                 CURRENT_USER.user_metadata?.user_name ||
+                 CURRENT_USER.email?.split('@')[0] ||
+                 'You'
+    document.querySelector('.topbar-name').textContent = name
+    document.querySelector('.avatar').textContent = name[0].toUpperCase()
+  }
+
   const totalDone = LEVELS.reduce((sum, l) => sum + l.done, 0)
   updateCircularProgress(totalDone, 150)
-  renderLevels(LEVELS, doneIds)
+  renderLevels(LEVELS, doneIds, userId)
   setTimeout(animateBars, 80)
 }
 
@@ -62,8 +88,48 @@ function updateCircularProgress(done, total) {
   document.getElementById('progress-done').textContent = done
   document.getElementById('progress-total').textContent = total
 }
+// ── AUTH ──
+async function signInGoogle() {
+  await db.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin + window.location.pathname
+    }
+  })
+}
 
-function renderLevels(LEVELS, doneIds) {
+async function signInGitHub() {
+  await db.auth.signInWithOAuth({
+    provider: 'github',
+    options: {
+      redirectTo: window.location.origin + window.location.pathname
+    }
+  })
+}
+
+async function signOut() {
+  await db.auth.signOut()
+  showLogin()
+}
+
+// ── CHECK SESSION ON LOAD ──
+// If user is already logged in, skip login screen
+db.auth.getSession().then(({ data: { session } }) => {
+  if (session && document.getElementById('login-screen')) {
+    showDashboard()
+  }
+})
+
+// Listen for auth changes (handles redirect back after OAuth)
+db.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_IN') {
+    showDashboard()
+  } else if (event === 'SIGNED_OUT') {
+    showLogin()
+  }
+})
+
+function renderLevels(LEVELS, doneIds, userId)  {
   const container = document.getElementById('levels-list')
 
   const openLevels = new Set()
@@ -80,7 +146,6 @@ function renderLevels(LEVELS, doneIds) {
     card.className = `level-card ${level.status} ${isOpen ? 'open' : ''}`
     card.dataset.id = level.id
 
-    // ✅ Completed levels show checkmark but still show chevron so they're expandable
     let badgeContent = `<span style="font-size:11px;font-weight:800">${level.id}</span>`
     if (level.status === 'completed') {
       badgeContent = `<svg viewBox="0 0 16 16" fill="none" style="width:15px;height:15px">
@@ -88,35 +153,45 @@ function renderLevels(LEVELS, doneIds) {
       </svg>`
     }
 
-    // ✅ Chevron shown for both active AND completed
     const chevron = `
       <svg class="card-chevron" viewBox="0 0 16 16" fill="none">
         <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>`
 
-    // ✅ Fixed: added opening <a tag
-    const questionsHtml = level.questions.map((q) => `
-      <div class="question-item ${doneIds.has(q.id) ? 'done' : ''}">
-        <input
-          type="checkbox"
-          class="q-checkbox"
-          data-qid="${q.id}"
-          ${doneIds.has(q.id) ? 'checked' : ''}
-        />
-        <div class="q-content">
-          
-            class="q-title-link"
-            href="question.html?id=${q.id}"
-            target="_blank"
-            onclick="event.stopPropagation()"
-          >${q.title}</a>
-          <div class="q-meta">
-            <span style="color:${diffColor[q.difficulty] || '#888'};font-size:10px;font-weight:600;text-transform:uppercase">${q.difficulty || ''}</span>
-            <span class="q-concept">${q.concept || ''}</span>
-          </div>
-        </div>
-      </div>
-    `).join('')
+    // Build question rows using DOM — no template string for the link
+    const questionRows = level.questions.map((q) => {
+      const item = document.createElement('div')
+      item.className = 'question-item' + (doneIds.has(q.id) ? ' done' : '')
+
+      const cb = document.createElement('input')
+      cb.type = 'checkbox'
+      cb.className = 'q-checkbox'
+      cb.dataset.qid = q.id
+      cb.checked = doneIds.has(q.id)
+
+      const content = document.createElement('div')
+      content.className = 'q-content'
+
+      const link = document.createElement('a')
+      link.className = 'q-title-link'
+      link.href = 'question.html?id=' + q.id
+      link.target = '_blank'
+      link.textContent = q.title
+      link.addEventListener('click', e => e.stopPropagation())
+
+      const meta = document.createElement('div')
+      meta.className = 'q-meta'
+      meta.innerHTML = `
+        <span style="color:${diffColor[q.difficulty] || '#888'};font-size:10px;font-weight:600;text-transform:uppercase">${q.difficulty || ''}</span>
+        <span class="q-concept">${q.concept || ''}</span>
+      `
+
+      content.appendChild(link)
+      content.appendChild(meta)
+      item.appendChild(cb)
+      item.appendChild(content)
+      return item
+    })
 
     card.innerHTML = `
       <div class="card-header">
@@ -136,24 +211,29 @@ function renderLevels(LEVELS, doneIds) {
       </div>
       <div class="card-body">
         <div class="card-body-inner">
-          <div class="questions-list">${questionsHtml}</div>
+          <div class="questions-list"></div>
         </div>
       </div>
     `
 
-    // ✅ Click handler for both active AND completed cards
+    // Append question rows into the list (DOM, not innerHTML)
+    const list = card.querySelector('.questions-list')
+    questionRows.forEach(row => list.appendChild(row))
+
+    // Toggle open/close
     card.querySelector('.card-header').addEventListener('click', (e) => {
       if (e.target.closest('.q-checkbox') || e.target.closest('.q-title-link')) return
       card.classList.toggle('open')
     })
 
-    card.querySelectorAll('.q-checkbox').forEach((cb) => {
-      cb.addEventListener('change', async (e) => {
+    // Checkbox change handlers
+    card.querySelectorAll('.q-checkbox').forEach((checkbox) => {
+      checkbox.addEventListener('change', async (e) => {
         e.stopPropagation()
-        const qid = parseInt(cb.dataset.qid)
-        const questionItem = cb.closest('.question-item')
+        const qid = parseInt(checkbox.dataset.qid)
+        const questionItem = checkbox.closest('.question-item')
 
-        if (cb.checked) {
+        if (checkbox.checked) {
           questionItem.classList.add('done')
           doneIds.add(qid)
           await db.from('user_progress').upsert({
@@ -174,11 +254,14 @@ function renderLevels(LEVELS, doneIds) {
             .eq('question_id', qid)
         }
 
-        const levelDone = level.questions.filter(q => doneIds.has(q.id)).length
-        const newPct = (levelDone / level.total) * 100
-        card.querySelector('.progress-bar-fill').style.width = newPct + '%'
-        card.querySelector('.progress-label').textContent = `${levelDone} / ${level.total}`
-        updateCircularProgress([...doneIds].length, 150)
+        // Update progress bar for this level
+          const levelDone = level.questions.filter(q => doneIds.has(q.id)).length
+          const newPct = (levelDone / level.questions.length) * 100
+          card.querySelector('.progress-bar-fill').style.width = newPct + '%'
+          card.querySelector('.progress-label').textContent = `${levelDone} / ${level.questions.length}`
+
+
+          updateCircularProgress([...doneIds].length, 150)
       })
     })
 
