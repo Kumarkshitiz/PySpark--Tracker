@@ -90,20 +90,20 @@ function updateCircularProgress(done, total) {
 // ── AUTH ──
 async function signInGoogle() {
   await db.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: window.location.origin + window.location.pathname
-    }
-  })
+  provider: 'google',
+  options: {
+    redirectTo: 'https://py-spark-tracker.vercel.app'
+  }
+})
 }
 
 async function signInGitHub() {
   await db.auth.signInWithOAuth({
-    provider: 'github',
-    options: {
-      redirectTo: window.location.origin + window.location.pathname
-    }
-  })
+  provider: 'google',
+  options: {
+    redirectTo: 'https://py-spark-tracker.vercel.app'
+  }
+})
 }
 
 async function signOut() {
