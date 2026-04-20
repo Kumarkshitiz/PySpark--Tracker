@@ -237,30 +237,29 @@ function renderLevels(LEVELS, doneIds, userId)  {
           questionItem.classList.add('done')
           doneIds.add(qid)
           await db.from('user_progress').upsert({
-            user_id: MOCK_USER_ID,
+            user_id: userId,
             question_id: qid,
             completed_at: new Date().toISOString()
           })
           await db.from('streaks').upsert({
-            user_id: MOCK_USER_ID,
+            user_id: userId,
             streak_date: new Date().toISOString().split('T')[0]
-          })
+          } ,{ onConflict: 'user_id,streak_date' })
         } else {
           questionItem.classList.remove('done')
           doneIds.delete(qid)
           await db.from('user_progress')
             .delete()
-            .eq('user_id', MOCK_USER_ID)
+            .eq('user_id', userId)
             .eq('question_id', qid)
         }
 
         // Update progress bar for this level
           const levelDone = level.questions.filter(q => doneIds.has(q.id)).length
-          const newPct = (levelDone / level.questions.length) * 100
+          const levelTotal = level.questions.length
+          const newPct = levelTotal > 0 ? (levelDone / levelTotal) * 100 : 0
           card.querySelector('.progress-bar-fill').style.width = newPct + '%'
-          card.querySelector('.progress-label').textContent = `${levelDone} / ${level.questions.length}`
-
-
+          card.querySelector('.progress-label').textContent = `${levelDone} / ${levelTotal}`
           updateCircularProgress([...doneIds].length, 150)
       })
     })
@@ -269,6 +268,7 @@ function renderLevels(LEVELS, doneIds, userId)  {
   })
 }
 
+
 function animateBars() {
   document.querySelectorAll('.progress-bar-fill').forEach((bar) => {
     requestAnimationFrame(() => {
@@ -276,3 +276,10 @@ function animateBars() {
     })
   })
 }
+
+// Reload when user comes back to this tab
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && document.getElementById('dashboard-screen')?.classList.contains('active')) {
+    loadDashboard()
+  }
+})

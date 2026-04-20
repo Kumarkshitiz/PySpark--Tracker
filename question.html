@@ -536,7 +536,7 @@
         await db.from('streaks').upsert({
           user_id: currentUserId,
           streak_date: new Date().toISOString().split('T')[0]
-        })
+        },  { onConflict: 'user_id,streak_date' })
       } else {
         await db.from('user_progress')
           .delete()
