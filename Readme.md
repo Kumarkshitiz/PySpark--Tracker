@@ -80,7 +80,6 @@ project/
 │   ├── config.js       # Supabase keys (ignored in git)
 │   ├── supabase.js     # DB client setup
 │   ├── dashboard.js    # Dashboard logic
-│   └── question.js     # Question page logic
 │
 ├── .gitignore
 └── README.md
