@@ -6,7 +6,7 @@
   <title>Question — PySpark Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -23,6 +23,8 @@
       --green:     #22c55e;
       --amber:     #f59e0b;
       --red:       #ef4444;
+      --cyan:      #06b6d4;
+      --cyan-dim:  #06b6d415;
       --font-ui:   'Syne', sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
     }
@@ -55,22 +57,6 @@
       align-items: center;
       gap: 16px;
     }
-
-    .back-btn {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      color: var(--muted);
-      text-decoration: none;
-      font-size: 12px;
-      font-weight: 500;
-      transition: color 0.15s;
-      cursor: pointer;
-      background: none;
-      border: none;
-      font-family: var(--font-ui);
-    }
-    .back-btn:hover { color: var(--text); }
 
     .topbar-brand {
       font-size: 13px;
@@ -235,6 +221,136 @@
       line-height: 1.8;
     }
 
+    /* ── PREREQUISITES SECTION ── */
+    .prereq-block {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-top: 2px solid var(--cyan);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .prereq-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
+    }
+
+    .prereq-header:hover {
+      background: var(--bg3);
+    }
+
+    .prereq-header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .prereq-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--cyan);
+      flex-shrink: 0;
+    }
+
+    .prereq-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+      color: var(--cyan);
+    }
+
+    .prereq-subtitle {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+    }
+
+    .prereq-chevron {
+      font-size: 10px;
+      color: var(--muted);
+      transition: transform 0.2s;
+    }
+
+    .prereq-chevron.open {
+      transform: rotate(180deg);
+    }
+
+    .prereq-body {
+      border-top: 1px solid var(--border);
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.3s ease;
+    }
+
+    .prereq-body.open {
+      max-height: 600px;
+    }
+
+    .prereq-code {
+      padding: 14px 16px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: #a5b4fc;
+      white-space: pre;
+      overflow-x: auto;
+      line-height: 1.75;
+      background: #0c0c0f;
+    }
+
+    /* syntax highlight tokens */
+    .tok-kw   { color: #c084fc; }   /* keywords: from, import, as */
+    .tok-cls  { color: #67e8f9; }   /* class names: SparkSession, F */
+    .tok-str  { color: #86efac; }   /* strings */
+    .tok-meth { color: #fbbf24; }   /* method calls */
+    .tok-cmt  { color: #4b5563; font-style: italic; }
+    .tok-op   { color: #94a3b8; }   /* operators, punctuation */
+
+    .prereq-copy-row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 8px 14px;
+      border-top: 1px solid var(--border);
+      gap: 8px;
+      background: var(--bg2);
+    }
+
+    .copy-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      border: 1px solid var(--border2);
+      background: var(--bg3);
+      color: var(--muted);
+      transition: all 0.15s;
+    }
+
+    .copy-btn:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+      background: var(--cyan-dim);
+    }
+
+    .copy-btn.copied {
+      border-color: #22c55e40;
+      color: var(--green);
+      background: #16261e;
+    }
+
     /* ── RIGHT PANEL SECTIONS ── */
     .right-section {
       margin-bottom: 32px;
@@ -299,10 +415,22 @@
       color: var(--accent);
     }
 
+    .link-btn.colab-btn {
+      border-color: #f9733620;
+      background: #f9733608;
+      color: #fb923c;
+    }
+
+    .link-btn.colab-btn:hover {
+      border-color: #f97316;
+      background: #f9731615;
+      color: #fdba74;
+    }
+
     .link-btn svg {
       width: 14px;
       height: 14px;
-      opacity: 0.7;
+      opacity: 0.8;
     }
 
     /* ── DIVIDER ── */
@@ -345,12 +473,6 @@
   <!-- Topbar -->
   <div class="topbar">
     <div class="topbar-left">
-      <button class="back-btn" onclick="history.back()">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-          <path d="M10 4L6 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        Back
-      </button>
       <div class="topbar-divider"></div>
       <span class="topbar-brand">PySpark Tracker</span>
     </div>
@@ -383,6 +505,34 @@
         <div class="section-label">Problem</div>
         <div class="section-body" id="q-problem"></div>
       </div>
+
+      <!-- Prerequisites (shown for Level 1) -->
+      <div class="section" id="prereq-section" style="display:none">
+        <div class="section-label">Prerequisites</div>
+        <div class="prereq-block">
+          <div class="prereq-header" onclick="togglePrereq()">
+            <div class="prereq-header-left">
+              <div class="prereq-dot"></div>
+              <span class="prereq-title">Starter Code</span>
+              <span class="prereq-subtitle">— paste this into your notebook</span>
+            </div>
+            <span class="prereq-chevron" id="prereq-chevron">▼</span>
+          </div>
+          <div class="prereq-body" id="prereq-body">
+            <div class="prereq-code" id="prereq-code-display"></div>
+            <div class="prereq-copy-row">
+              <button class="copy-btn" id="copy-btn" onclick="copyPrereq()">
+                <svg viewBox="0 0 16 16" fill="none" width="12" height="12">
+                  <rect x="5" y="5" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+                  <path d="M3 11V3h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Copy code
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- Right: Output + Resources -->
@@ -418,15 +568,44 @@
 
     </div>
   </div>
+
   <script src="js/config.js"></script>
   <script src="js/supabase.js"></script>
   <script>
     const diffColor = { easy: '#22c55e', medium: '#f59e0b', hard: '#ef4444' }
     const diffClass = { easy: 'badge-easy', medium: 'badge-medium', hard: 'badge-hard' }
 
+    // ── Level prerequisites config ──────────────────────────────────────────
+    // Add an entry here for each level that needs a prerequisites block.
+    // For level 2+, you can add a different dataset URL and starter code later.
+    const LEVEL_PREREQS = {
+      1: `from pyspark.sql import SparkSession
+from pyspark.sql import functions as F
+import requests
+
+spark = SparkSession.builder.appName("PySpark Practice").master("local[*]").getOrCreate()
+
+# Download the dataset to local Colab storage first
+url = "https://tqsqwdinoqlcmxzqrjzn.supabase.co/storage/v1/object/public/datasets/sales.csv"
+r = requests.get(url)
+with open("/tmp/sales.csv", "wb") as f:
+  f.write(r.content)
+
+# Now read from local path
+df = spark.read.csv("/tmp/sales.csv", header=True, inferSchema=True)`,
+    }
+
+    // ── Level Colab links config ────────────────────────────────────────────
+    // Paste the Colab share URL for each level here.
+    const LEVEL_COLAB = {
+      1: 'https://colab.research.google.com',   // ← replace with your actual Level 1 Colab link
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     let currentUserId = null
-    let currentQid = null
-    let isDone = false
+    let currentQid    = null
+    let isDone        = false
+    let prereqRawCode = ''
 
     async function loadQuestion() {
       const { data: { session } } = await db.auth.getSession()
@@ -472,22 +651,39 @@
         document.getElementById('q-output').textContent = q.expected_output
       }
 
-      // Links
+      // ── Prerequisites block ──────────────────────────────────────────────
+      const prereqCode = LEVEL_PREREQS[q.level]
+      if (prereqCode) {
+        prereqRawCode = prereqCode
+        document.getElementById('prereq-section').style.display = 'block'
+        document.getElementById('prereq-code-display').innerHTML = syntaxHighlight(prereqCode)
+        // Open by default so users see it immediately
+        openPrereq()
+      }
+
+      // ── Links / Resources ────────────────────────────────────────────────
       const linksEl = document.getElementById('q-links')
-      if (q.dataset_url || q.colab_url) {
+      const colabUrl = q.colab_url || LEVEL_COLAB[q.level]
+
+      if (q.dataset_url || colabUrl) {
         document.getElementById('resources-section').style.display = 'block'
+
+        if (colabUrl) {
+          linksEl.innerHTML += `
+            <a href="${colabUrl}" target="_blank" class="link-btn colab-btn">
+              <svg viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/>
+                <path d="M6 5.5l4 2.5-4 2.5V5.5z" fill="currentColor"/>
+              </svg>
+              Open in Colab
+            </a>`
+        }
+
         if (q.dataset_url) {
           linksEl.innerHTML += `
             <a href="${q.dataset_url}" target="_blank" class="link-btn">
               <svg viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
               Download dataset
-            </a>`
-        }
-        if (q.colab_url) {
-          linksEl.innerHTML += `
-            <a href="${q.colab_url}" target="_blank" class="link-btn">
-              <svg viewBox="0 0 16 16" fill="none"><path d="M6 3l7 5-7 5V3z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              Open in Colab
             </a>`
         }
       }
@@ -507,19 +703,81 @@
       document.getElementById('main-layout').style.display = 'grid'
     }
 
+    // ── Syntax highlighter (simple token-based, no deps) ──────────────────
+    function syntaxHighlight(code) {
+      // Escape HTML first
+      const escaped = code
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+
+      return escaped
+        // strings (single + double quoted)
+        .replace(/(["'])(?:(?!\1).)*\1/g, m => `<span class="tok-str">${m}</span>`)
+        // keywords
+        .replace(/\b(from|import|as|def|class|return|if|else|with|True|False|None)\b/g,
+          m => `<span class="tok-kw">${m}</span>`)
+        // class-like names (CamelCase)
+        .replace(/\b([A-Z][a-zA-Z]+)\b/g,
+          m => `<span class="tok-cls">${m}</span>`)
+        // method calls .something(
+        .replace(/(\.\w+)(?=\()/g,
+          m => `<span class="tok-meth">${m}</span>`)
+        // comments
+        .replace(/(#.*)$/gm,
+          m => `<span class="tok-cmt">${m}</span>`)
+    }
+
+    // ── Prereq accordion ──────────────────────────────────────────────────
+    function openPrereq() {
+      document.getElementById('prereq-body').classList.add('open')
+      document.getElementById('prereq-chevron').classList.add('open')
+    }
+
+    function togglePrereq() {
+      document.getElementById('prereq-body').classList.toggle('open')
+      document.getElementById('prereq-chevron').classList.toggle('open')
+    }
+
+    // ── Copy to clipboard ─────────────────────────────────────────────────
+    async function copyPrereq() {
+      try {
+        await navigator.clipboard.writeText(prereqRawCode)
+        const btn = document.getElementById('copy-btn')
+        btn.classList.add('copied')
+        btn.innerHTML = `
+          <svg viewBox="0 0 16 16" fill="none" width="12" height="12">
+            <path d="M3 8l4 4 6-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Copied!`
+        setTimeout(() => {
+          btn.classList.remove('copied')
+          btn.innerHTML = `
+            <svg viewBox="0 0 16 16" fill="none" width="12" height="12">
+              <rect x="5" y="5" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M3 11V3h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Copy code`
+        }, 2000)
+      } catch (e) {
+        console.warn('Clipboard write failed', e)
+      }
+    }
+
+    // ── Done button ───────────────────────────────────────────────────────
     function updateDoneBtn() {
-      const btn = document.getElementById('done-btn')
+      const btn   = document.getElementById('done-btn')
       const label = document.getElementById('done-label')
-      const icon = document.getElementById('check-icon')
+      const icon  = document.getElementById('check-icon')
 
       if (isDone) {
         btn.classList.add('completed')
         label.textContent = 'Completed'
-        icon.textContent = '✓'
+        icon.textContent  = '✓'
       } else {
         btn.classList.remove('completed')
         label.textContent = 'Mark as done'
-        icon.textContent = ''
+        icon.textContent  = ''
       }
     }
 
@@ -529,14 +787,14 @@
 
       if (isDone) {
         await db.from('user_progress').upsert({
-          user_id: currentUserId,
-          question_id: currentQid,
+          user_id:      currentUserId,
+          question_id:  currentQid,
           completed_at: new Date().toISOString()
         })
         await db.from('streaks').upsert({
-          user_id: currentUserId,
+          user_id:    currentUserId,
           streak_date: new Date().toISOString().split('T')[0]
-        },  { onConflict: 'user_id,streak_date' })
+        }, { onConflict: 'user_id,streak_date' })
       } else {
         await db.from('user_progress')
           .delete()

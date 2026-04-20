@@ -22,7 +22,6 @@ function showLogin() {
   document.getElementById('login-screen').classList.add('active')
 }
 
-document.getElementById('skip-btn')?.addEventListener('click', showDashboard)
 document.getElementById('back-btn')?.addEventListener('click', showLogin)
 async function loadDashboard() {
   CURRENT_USER = await getUser()
